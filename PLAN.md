@@ -11,6 +11,41 @@ intent vs. outcome from behaviour**, and do it for bugs I'll never see in advanc
 ## Architecture — hybrid: generalizable signals + per-route healthy baseline
 Two layers, deliberately. Either alone fails the brief.
 
+```mermaid
+flowchart TB
+    subgraph SRC[Sources]
+        PH["PostHog session replays<br/>(debtor + client surfaces)"]
+        ORC["Expected-behaviour oracles<br/>route/control manifest · funnel success events<br/>· deploy timestamps — requested from eng"]
+    end
+
+    PH --> MASK
+
+    subgraph PRIV["Privacy boundary — metadata only, never raw replay"]
+        MASK["Ingest + mask<br/>tokenize invoice IDs · drop typed text/DOM"]
+        NORM["Normalize to ordered event stream<br/>type · route pattern · element role · timing · status"]
+        MASK --> NORM
+    end
+
+    NORM --> SIG
+    NORM --> BASE
+
+    subgraph DET["Detection (hybrid)"]
+        SIG["Signal extraction<br/>rage · dead-end-after-click<br/>· retry-then-quit · abandon-after-effort"]
+        BASE["Per-route healthy baseline<br/>funnel completion · normal abandon rate"]
+    end
+
+    ORC -.->|defines 'expected'| BASE
+    ORC -.->|deterministic checks| SCORE
+
+    SIG --> SCORE
+    BASE --> SCORE
+
+    SCORE["Score vs baseline<br/>severity = impact × surface"]
+    SCORE --> VERDICT["Per-session verdict<br/>flagged · severity · signals[] · reason"]
+    VERDICT --> ROLL["Cross-session rollup<br/>× frequency per (route, signal)"]
+    ROLL --> OUT["Triage queue<br/>ranked · auditable · retention-limited"]
+```
+
 1. **Signal layer (generalizes).** A small, composable set of *behaviour* signals that mean
    "the user wanted something and didn't get it" — independent of which feature broke. These
    carry severity.
